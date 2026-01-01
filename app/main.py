@@ -1,0 +1,138 @@
+"""
+Main FastAPI application entry point
+"""
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+import logging
+import traceback
+
+from app.core.config import settings
+from app.api.v1.api import api_router
+from app.db.session import engine
+from app.db.base import Base
+from app.middleware.usage_tracking import UsageTrackingMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for startup and shutdown events
+    """
+    # Startup
+    logger.info("Starting up AI Pentest Brain Web API...")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Database: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else 'SQLite'}")
+    
+    # Create database tables automatically for demo/development
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    
+    yield
+    
+    # Shutdown
+    logger.info("Shutting down AI Pentest Brain Web API...")
+    await engine.dispose()
+
+
+# Create FastAPI application
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    description="AI-powered penetration testing platform with comprehensive vulnerability scanning",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    lifespan=lifespan
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Add rate limiting middleware (before usage tracking)
+app.add_middleware(RateLimitMiddleware)
+
+# Add usage tracking middleware
+app.add_middleware(UsageTrackingMiddleware)
+
+# Include API router
+app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+# Global exception handler for debugging
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Global exception handler to log and return detailed errors in development
+    """
+    error_detail = str(exc)
+    error_traceback = traceback.format_exc()
+    
+    logger.error(f"Unhandled exception: {error_detail}")
+    logger.error(f"Traceback: {error_traceback}")
+    
+    if settings.ENVIRONMENT == "development":
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": error_detail,
+                "type": type(exc).__name__,
+                "traceback": error_traceback
+            }
+        )
+    else:
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"}
+        )
+
+
+@app.get("/health")
+async def health_check():
+    """
+    Health check endpoint
+    """
+    return {
+        "status": "healthy",
+        "version": settings.VERSION,
+        "environment": settings.ENVIRONMENT
+    }
+
+
+@app.get("/")
+async def root():
+    """
+    Root endpoint
+    """
+    return {
+        "message": "Sentry Security API",
+        "version": settings.VERSION,
+        "docs": "/docs"
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

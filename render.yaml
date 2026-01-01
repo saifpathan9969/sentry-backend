@@ -1,0 +1,17 @@
+# Render Blueprint for Sentry Backend
+services:
+  - type: web
+    name: sentry-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        sync: false
+    healthCheckPath: /health
