@@ -3,6 +3,7 @@ Database session management
 """
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import NullPool, StaticPool
+import ssl
 
 from app.core.config import settings
 
@@ -14,6 +15,13 @@ is_sqlite = "sqlite" in settings.DATABASE_URL
 database_url = settings.DATABASE_URL
 if database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    # Remove sslmode from URL as asyncpg uses ssl parameter differently
+    if "sslmode=" in database_url:
+        # Remove sslmode parameter from URL
+        import re
+        database_url = re.sub(r'[\?&]sslmode=[^&]*', '', database_url)
+        # Clean up any trailing ? or &
+        database_url = database_url.rstrip('?&')
 
 # Create async engine with appropriate settings
 if is_sqlite:
@@ -27,12 +35,18 @@ if is_sqlite:
     )
 else:
     # PostgreSQL configuration (Neon/Render compatible)
+    # Create SSL context for secure connection
+    ssl_context = ssl.create_default_context()
+    ssl_context.check_hostname = False
+    ssl_context.verify_mode = ssl.CERT_NONE
+    
     engine = create_async_engine(
         database_url,
         echo=settings.ENVIRONMENT == "development",
         future=True,
         pool_pre_ping=True,
         poolclass=NullPool,
+        connect_args={"ssl": ssl_context},
     )
 
 # Create async session factory
