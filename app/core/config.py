@@ -37,9 +37,10 @@ class Settings(BaseSettings):
         "http://localhost:3002",
         "http://localhost:5173",
         "http://localhost:8000",
-        # Add your Vercel/Netlify URLs after deployment:
-        # "https://sentry-security.vercel.app",
-        # "https://sentry-security.netlify.app",
+        # Production URLs
+        "https://sentry-saifpathan9969s-projects.vercel.app",
+        "https://sentry-git-main-saifpathan9969s-projects.vercel.app",
+        "https://sentry-security.vercel.app",
     ]
     
     # Email (for verification and password reset)
