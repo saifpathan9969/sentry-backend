@@ -10,6 +10,11 @@ from app.core.config import settings
 # Determine if using SQLite or PostgreSQL
 is_sqlite = "sqlite" in settings.DATABASE_URL
 
+# Convert DATABASE_URL to async format if needed
+database_url = settings.DATABASE_URL
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
 # Create async engine with appropriate settings
 if is_sqlite:
     # SQLite configuration
@@ -21,16 +26,13 @@ if is_sqlite:
         poolclass=StaticPool,
     )
 else:
-    # PostgreSQL configuration
+    # PostgreSQL configuration (Neon/Render compatible)
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        database_url,
         echo=settings.ENVIRONMENT == "development",
         future=True,
         pool_pre_ping=True,
         poolclass=NullPool,
-        connect_args={
-            "prepared_statement_cache_size": 0,
-        }
     )
 
 # Create async session factory
