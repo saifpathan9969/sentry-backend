@@ -38,8 +38,9 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
     
-    # Auto-create owner accounts if they don't exist
-    await create_owner_accounts()
+    # NOTE: Owner accounts are created manually via create_final_owner_accounts.py
+    # This prevents conflicts and ensures correct passwords
+    logger.info("Owner accounts should be created manually if needed")
     
     yield
     
