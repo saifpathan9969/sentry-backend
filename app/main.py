@@ -38,11 +38,67 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created successfully")
     
+    # Auto-create owner accounts if they don't exist
+    await create_owner_accounts()
+    
     yield
     
     # Shutdown
     logger.info("Shutting down AI Pentest Brain Web API...")
     await engine.dispose()
+
+
+async def create_owner_accounts():
+    """
+    Automatically create owner accounts on startup if they don't exist
+    """
+    try:
+        from app.db.session import AsyncSessionLocal
+        from app.models.user import User
+        from app.models.subscription import Subscription
+        from sqlalchemy import select
+        from passlib.context import CryptContext
+        
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        
+        async with AsyncSessionLocal() as db:
+            for email in settings.OWNER_EMAILS:
+                # Check if user already exists
+                result = await db.execute(select(User).where(User.email == email))
+                existing_user = result.scalar_one_or_none()
+                
+                if not existing_user:
+                    # Create owner user
+                    hashed_password = pwd_context.hash("Sentry@779969")
+                    user = User(
+                        email=email,
+                        hashed_password=hashed_password,
+                        full_name="Owner Account",
+                        is_active=True,
+                        is_verified=True
+                    )
+                    db.add(user)
+                    await db.flush()  # Get the user ID
+                    
+                    # Create enterprise subscription
+                    subscription = Subscription(
+                        user_id=user.id,
+                        tier="enterprise",
+                        status="active",
+                        is_active=True
+                    )
+                    db.add(subscription)
+                    
+                    logger.info(f"Created owner account: {email}")
+                else:
+                    logger.info(f"Owner account already exists: {email}")
+            
+            await db.commit()
+            logger.info("Owner accounts initialization complete")
+            
+    except Exception as e:
+        logger.error(f"Failed to create owner accounts: {str(e)}")
+        # Don't fail startup if owner creation fails
 
 
 # Create FastAPI application
