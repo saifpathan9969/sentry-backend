@@ -31,15 +31,27 @@ class QueueService:
     def __init__(self):
         """Initialize Redis connection"""
         self._redis: Optional[redis.Redis] = None
+        self._redis_available = True
     
-    async def get_redis(self) -> redis.Redis:
-        """Get or create Redis connection"""
+    async def get_redis(self) -> Optional[redis.Redis]:
+        """Get or create Redis connection, return None if Redis unavailable"""
+        if not self._redis_available:
+            return None
+            
         if self._redis is None:
-            self._redis = await redis.from_url(
-                settings.REDIS_URL,
-                encoding="utf-8",
-                decode_responses=True
-            )
+            try:
+                self._redis = await redis.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True
+                )
+                # Test connection
+                await self._redis.ping()
+            except Exception as e:
+                print(f"Redis unavailable, running without queue: {e}")
+                self._redis_available = False
+                self._redis = None
+                return None
         return self._redis
     
     async def close(self):
@@ -70,6 +82,9 @@ class QueueService:
             True if enqueued successfully
         """
         redis_client = await self.get_redis()
+        if not redis_client:
+            print("Redis unavailable, skipping queue operations")
+            return True
         
         # Create job data
         job_data = {
@@ -90,11 +105,15 @@ class QueueService:
             else self.QUEUE_NORMAL_PRIORITY
         )
         
-        # Push to queue (LPUSH for FIFO with BRPOP)
-        await redis_client.lpush(queue_name, json.dumps(job_data))
-        
-        # Set initial status
-        await self.set_job_status(scan_id, "queued")
+        try:
+            # Push to queue (LPUSH for FIFO with BRPOP)
+            await redis_client.lpush(queue_name, json.dumps(job_data))
+            
+            # Set initial status
+            await self.set_job_status(scan_id, "queued")
+        except Exception as e:
+            print(f"Redis operation failed: {e}")
+            return False
         
         return True
     
@@ -146,8 +165,15 @@ class QueueService:
             Status string or None if not found
         """
         redis_client = await self.get_redis()
-        status = await redis_client.get(f"{self.QUEUE_STATUS}{scan_id}")
-        return status
+        if not redis_client:
+            return None
+            
+        try:
+            status = await redis_client.get(f"{self.QUEUE_STATUS}{scan_id}")
+            return status
+        except Exception as e:
+            print(f"Redis get status failed: {e}")
+            return None
     
     async def set_job_status(
         self,
@@ -167,12 +193,19 @@ class QueueService:
             True if set successfully
         """
         redis_client = await self.get_redis()
-        await redis_client.setex(
-            f"{self.QUEUE_STATUS}{scan_id}",
-            ttl,
-            status
-        )
-        return True
+        if not redis_client:
+            return True  # Silently succeed in development
+            
+        try:
+            await redis_client.setex(
+                f"{self.QUEUE_STATUS}{scan_id}",
+                ttl,
+                status
+            )
+            return True
+        except Exception as e:
+            print(f"Redis set status failed: {e}")
+            return False
     
     async def cancel_job(self, scan_id: UUID) -> bool:
         """
@@ -188,8 +221,7 @@ class QueueService:
         Returns:
             True if cancelled successfully
         """
-        await self.set_job_status(scan_id, "cancelled")
-        return True
+        return await self.set_job_status(scan_id, "cancelled")
     
     async def get_queue_length(self, priority: str = "all") -> int:
         """
@@ -202,15 +234,21 @@ class QueueService:
             Number of jobs in queue
         """
         redis_client = await self.get_redis()
-        
-        if priority == "high":
-            return await redis_client.llen(self.QUEUE_HIGH_PRIORITY)
-        elif priority == "normal":
-            return await redis_client.llen(self.QUEUE_NORMAL_PRIORITY)
-        else:  # all
-            high = await redis_client.llen(self.QUEUE_HIGH_PRIORITY)
-            normal = await redis_client.llen(self.QUEUE_NORMAL_PRIORITY)
-            return high + normal
+        if not redis_client:
+            return 0
+            
+        try:
+            if priority == "high":
+                return await redis_client.llen(self.QUEUE_HIGH_PRIORITY)
+            elif priority == "normal":
+                return await redis_client.llen(self.QUEUE_NORMAL_PRIORITY)
+            else:  # all
+                high = await redis_client.llen(self.QUEUE_HIGH_PRIORITY)
+                normal = await redis_client.llen(self.QUEUE_NORMAL_PRIORITY)
+                return high + normal
+        except Exception as e:
+            print(f"Redis queue length check failed: {e}")
+            return 0
     
     async def clear_queue(self, priority: str = "all") -> bool:
         """

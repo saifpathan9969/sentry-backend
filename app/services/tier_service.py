@@ -165,19 +165,65 @@ class TierService:
         )
     
     @classmethod
+    def check_execution_mode(
+        cls,
+        user: User,
+        execution_mode: str,
+    ) -> TierCheckResponse:
+        """
+        Check if user's tier allows the requested execution mode
+        
+        Args:
+            user: User to check
+            execution_mode: Requested execution mode
+            
+        Returns:
+            TierCheckResponse with allowed status and details
+        """
+        # Owners can use any execution mode
+        if is_owner_email(user.email):
+            return TierCheckResponse(
+                allowed=True,
+                reason=None,
+                current_usage=None,
+                limit=None,
+            )
+        
+        tier_str = normalize_tier(user.tier)
+        
+        # Define execution mode access by tier
+        tier_execution_modes = {
+            "free": ["report_only"],
+            "premium": ["report_only", "dry_run"],
+            "enterprise": ["report_only", "dry_run", "apply_fixes"],
+        }
+        
+        allowed_modes = tier_execution_modes.get(tier_str, ["report_only"])
+        allowed = execution_mode in allowed_modes
+        
+        return TierCheckResponse(
+            allowed=allowed,
+            reason=None if allowed else f"Execution mode '{execution_mode}' not allowed for {tier_str} tier. Allowed modes: {', '.join(allowed_modes)}",
+            current_usage=None,
+            limit=None,
+        )
+    
+    @classmethod
     async def check_scan_access(
         cls,
         db: AsyncSession,
         user: User,
         scan_mode: str,
+        execution_mode: str = "report_only",
     ) -> TierCheckResponse:
         """
-        Comprehensive check for scan access (both limit and mode)
+        Comprehensive check for scan access (limit, mode, and execution mode)
         
         Args:
             db: Database session
             user: User to check
             scan_mode: Requested scan mode
+            execution_mode: Requested execution mode
             
         Returns:
             TierCheckResponse with allowed status and details
@@ -186,6 +232,11 @@ class TierService:
         mode_check = cls.check_scan_mode(user, scan_mode)
         if not mode_check.allowed:
             return mode_check
+        
+        # Check execution mode
+        execution_check = cls.check_execution_mode(user, execution_mode)
+        if not execution_check.allowed:
+            return execution_check
         
         # Check scan limit
         limit_check = await cls.check_scan_limit(db, user)

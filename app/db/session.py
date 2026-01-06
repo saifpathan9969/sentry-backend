@@ -8,11 +8,16 @@ import ssl
 from app.core.config import settings
 
 
-# Determine if using SQLite or PostgreSQL
-is_sqlite = "sqlite" in settings.DATABASE_URL
+# Get DATABASE_URL with fallback to SQLite
+database_url = getattr(settings, 'DATABASE_URL', None) or "sqlite+aiosqlite:///./pentest_brain.db"
 
-# Convert DATABASE_URL to async format if needed
-database_url = settings.DATABASE_URL
+# Ensure we have a valid database URL
+if not database_url or database_url.strip() == "":
+    database_url = "sqlite+aiosqlite:///./pentest_brain.db"
+
+# Determine if using SQLite or PostgreSQL
+is_sqlite = "sqlite" in database_url
+is_postgres = "postgresql" in database_url
 if database_url.startswith("postgresql://"):
     database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     # Remove sslmode from URL as asyncpg uses ssl parameter differently
@@ -22,31 +27,44 @@ if database_url.startswith("postgresql://"):
         database_url = re.sub(r'[\?&]sslmode=[^&]*', '', database_url)
         # Clean up any trailing ? or &
         database_url = database_url.rstrip('?&')
+elif database_url.startswith("sqlite:///"):
+    # Convert SQLite URL to async format
+    database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///", 1)
 
 # Create async engine with appropriate settings
 if is_sqlite:
-    # SQLite configuration
+    # SQLite configuration with aiosqlite
     engine = create_async_engine(
-        settings.DATABASE_URL,
+        database_url,
         echo=settings.ENVIRONMENT == "development",
         future=True,
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-else:
-    # PostgreSQL configuration (Neon/Render compatible)
-    # Create SSL context for secure connection
-    ssl_context = ssl.create_default_context()
-    ssl_context.check_hostname = False
-    ssl_context.verify_mode = ssl.CERT_NONE
-    
+elif is_postgres:
+    # PostgreSQL configuration (Railway/Render compatible)
     engine = create_async_engine(
         database_url,
         echo=settings.ENVIRONMENT == "development",
         future=True,
         pool_pre_ping=True,
         poolclass=NullPool,
-        connect_args={"ssl": ssl_context},
+    )
+elif is_postgres:
+    # PostgreSQL configuration (Railway/Render compatible)
+    engine = create_async_engine(
+        database_url,
+        echo=settings.ENVIRONMENT == "development",
+        future=True,
+        pool_pre_ping=True,
+        poolclass=NullPool,
+    )
+else:
+    # Fallback configuration
+    engine = create_async_engine(
+        database_url,
+        echo=settings.ENVIRONMENT == "development",
+        future=True,
     )
 
 # Create async session factory

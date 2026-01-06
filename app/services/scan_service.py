@@ -42,7 +42,7 @@ class ScanService:
         """
         # Check tier-based access
         access_check = await TierService.check_scan_access(
-            db, user, scan_data.scan_mode
+            db, user, scan_data.scan_mode, scan_data.execution_mode
         )
         
         if not access_check.allowed:
@@ -56,6 +56,7 @@ class ScanService:
             user_id=user.id,
             target=str(scan_data.target_url),
             scan_mode=scan_data.scan_mode,
+            execution_mode=scan_data.execution_mode,
             status='queued',
         )
         
@@ -63,22 +64,50 @@ class ScanService:
         await db.commit()
         await db.refresh(scan)
         
-        # Enqueue scan for processing via Celery
-        process_scan.delay(
-            scan_id=str(scan.id),
-            user_id=str(user.id),
-            target_url=scan.target,
-            scan_mode=scan.scan_mode,
-        )
-        
-        # Also track in Redis queue for monitoring
-        await queue_service.enqueue_scan(
-            scan_id=scan.id,
-            user_id=user.id,
-            target_url=scan.target,
-            scan_mode=scan.scan_mode,
-            user_tier=user.tier,
-        )
+        # For local development, run scan synchronously
+        from app.core.config import settings
+        if settings.ENVIRONMENT == "development":
+            # Import here to avoid circular imports
+            from app.workers.scan_worker import _process_scan_async
+            import asyncio
+            
+            # Immediately set to running status for better UX
+            scan.status = 'running'
+            scan.started_at = datetime.utcnow()
+            await db.commit()
+            await db.refresh(scan)
+            
+            # Run scan in background task (non-blocking)
+            asyncio.create_task(_process_scan_async(
+                str(scan.id),
+                str(user.id),
+                scan.target,
+                scan.scan_mode,
+                scan.execution_mode,
+            ))
+        else:
+            # Production: Use Celery
+            process_scan.delay(
+                scan_id=str(scan.id),
+                user_id=str(user.id),
+                target_url=scan.target,
+                scan_mode=scan.scan_mode,
+                execution_mode=scan.execution_mode,
+            )
+            
+            # Also track in Redis queue for monitoring (optional)
+            try:
+                await queue_service.enqueue_scan(
+                    scan_id=scan.id,
+                    user_id=user.id,
+                    target_url=scan.target,
+                    scan_mode=scan.scan_mode,
+                    execution_mode=scan.execution_mode,
+                    user_tier=user.tier,
+                )
+            except Exception as e:
+                print(f"Redis queue tracking failed (non-critical): {e}")
+                # Continue without Redis tracking
         
         return scan
     
@@ -290,7 +319,11 @@ class ScanService:
         await db.commit()
         await db.refresh(scan)
         
-        # Cancel background job
-        await queue_service.cancel_job(scan.id)
+        # Cancel background job (optional in development)
+        try:
+            await queue_service.cancel_job(scan.id)
+        except Exception as e:
+            print(f"Redis job cancellation failed (non-critical): {e}")
+            # Continue without Redis cancellation
         
         return scan

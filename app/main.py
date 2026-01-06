@@ -103,6 +103,48 @@ async def global_exception_handler(request: Request, exc: Exception):
         )
 
 
+@app.get("/debug/scans/{scan_id}")
+async def debug_scan(scan_id: str):
+    """
+    Debug endpoint to check scan status
+    """
+    try:
+        from app.db.session import async_session_maker
+        from app.models.scan import Scan
+        from sqlalchemy import select
+        from uuid import UUID
+        
+        async with async_session_maker() as db:
+            query = select(Scan).where(Scan.id == UUID(scan_id))
+            result = await db.execute(query)
+            scan = result.scalar_one_or_none()
+            
+            if not scan:
+                return {"error": "Scan not found"}
+            
+            return {
+                "id": str(scan.id),
+                "target": scan.target,
+                "status": scan.status,
+                "scan_mode": scan.scan_mode,
+                "execution_mode": scan.execution_mode,
+                "created_at": scan.created_at.isoformat() if scan.created_at else None,
+                "started_at": scan.started_at.isoformat() if scan.started_at else None,
+                "completed_at": scan.completed_at.isoformat() if scan.completed_at else None,
+                "vulnerabilities_found": scan.vulnerabilities_found,
+                "critical_count": scan.critical_count,
+                "high_count": scan.high_count,
+                "medium_count": scan.medium_count,
+                "low_count": scan.low_count,
+                "platform_detected": scan.platform_detected,
+                "confidence": scan.confidence,
+                "duration_seconds": scan.duration_seconds,
+                "error_message": scan.error_message,
+            }
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/health")
 async def health_check():
     """

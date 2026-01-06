@@ -120,11 +120,7 @@ class AuthService:
                 detail="Account is inactive"
             )
         
-        # Update last login
-        user.last_login = datetime.utcnow()
-        await self.db.commit()
-        
-        # Create tokens
+        # Create tokens (removed last_login update to avoid database conflicts)
         token_data = {
             "sub": str(user.id),
             "email": user.email,

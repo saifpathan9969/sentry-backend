@@ -16,6 +16,16 @@ class ScanMode(str, enum.Enum):
     COMMON = "common"
     FAST = "fast"
     FULL = "full"
+    STEALTH = "stealth"
+    AGGRESSIVE = "aggressive"
+    CUSTOM = "custom"
+
+
+class ExecutionMode(str, enum.Enum):
+    """Execution mode options"""
+    REPORT_ONLY = "report_only"
+    DRY_RUN = "dry_run"
+    APPLY_FIXES = "apply_fixes"
 
 
 class ScanStatus(str, enum.Enum):
@@ -24,6 +34,7 @@ class ScanStatus(str, enum.Enum):
     RUNNING = "running"
     COMPLETED = "completed"
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class Scan(Base):
@@ -41,14 +52,19 @@ class Scan(Base):
     # Scan configuration
     target = Column(String(500), nullable=False)
     scan_mode = Column(
-        PG_ENUM('common', 'fast', 'full', name='scan_mode', create_type=False),
+        PG_ENUM('common', 'fast', 'full', 'stealth', 'aggressive', 'custom', name='scan_mode', create_type=False),
         default='common',
+        nullable=False
+    )
+    execution_mode = Column(
+        PG_ENUM('report_only', 'dry_run', 'apply_fixes', name='execution_mode', create_type=False),
+        default='report_only',
         nullable=False
     )
     
     # Scan status - use PostgreSQL native enum with lowercase values
     status = Column(
-        PG_ENUM('queued', 'running', 'completed', 'failed', name='scan_status', create_type=False),
+        PG_ENUM('queued', 'running', 'completed', 'failed', 'cancelled', name='scan_status', create_type=False),
         default='queued',
         nullable=False,
         index=True

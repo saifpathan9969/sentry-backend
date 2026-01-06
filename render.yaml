@@ -1,17 +1,26 @@
-# Render Blueprint for Sentry Backend
 services:
   - type: web
-    name: sentry-backend
+    name: neural-brain-backend
     env: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: DATABASE_URL
-        sync: false
-      - key: SECRET_KEY
-        generateValue: true
       - key: ENVIRONMENT
         value: production
+      - key: PROJECT_NAME
+        value: Neural Brain Security
+      - key: VERSION
+        value: 3.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: neural-brain-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
       - key: CORS_ORIGINS
-        sync: false
-    healthCheckPath: /health
+        value: '["https://neural-brain-security.vercel.app","https://neural-brain-security-git-main.vercel.app","https://*.vercel.app","http://localhost:3000"]'
+
+databases:
+  - name: neural-brain-db
+    databaseName: neural_brain
+    user: neural_brain_user
