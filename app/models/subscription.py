@@ -30,27 +30,19 @@ class Subscription(Base):
     """
     __tablename__ = "subscriptions"
     
-    # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    # Primary key - use String for SQLite compatibility
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     
-    # Foreign key to user
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Foreign key to user - use String for SQLite compatibility
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Stripe identifiers
     stripe_subscription_id = Column(String(255), unique=True, nullable=False, index=True)
     stripe_customer_id = Column(String(255), nullable=False)
     
-    # Subscription details - use PostgreSQL native enum with lowercase values
-    tier = Column(
-        PG_ENUM('premium', 'enterprise', name='subscription_tier', create_type=False),
-        nullable=False
-    )
-    status = Column(
-        PG_ENUM('active', 'canceled', 'past_due', name='subscription_status', create_type=False),
-        default='active',
-        nullable=False,
-        index=True
-    )
+    # Subscription details - use String for SQLite compatibility
+    tier = Column(String(20), nullable=False)
+    status = Column(String(20), default='active', nullable=False, index=True)
     
     # Billing period
     current_period_start = Column(DateTime, nullable=False)

@@ -1,7 +1,7 @@
 """
 Scan model
 """
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Numeric, Enum
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Numeric, Enum, JSON
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM as PG_ENUM
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -43,32 +43,19 @@ class Scan(Base):
     """
     __tablename__ = "scans"
     
-    # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    # Primary key - use String for SQLite compatibility
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
     
-    # Foreign key to user
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Foreign key to user - use String for SQLite compatibility
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Scan configuration
     target = Column(String(500), nullable=False)
-    scan_mode = Column(
-        PG_ENUM('common', 'fast', 'full', 'stealth', 'aggressive', 'custom', name='scan_mode', create_type=False),
-        default='common',
-        nullable=False
-    )
-    execution_mode = Column(
-        PG_ENUM('report_only', 'dry_run', 'apply_fixes', name='execution_mode', create_type=False),
-        default='report_only',
-        nullable=False
-    )
+    scan_mode = Column(String(20), default='common', nullable=False)
+    execution_mode = Column(String(20), default='report_only', nullable=False)
     
-    # Scan status - use PostgreSQL native enum with lowercase values
-    status = Column(
-        PG_ENUM('queued', 'running', 'completed', 'failed', 'cancelled', name='scan_status', create_type=False),
-        default='queued',
-        nullable=False,
-        index=True
-    )
+    # Scan status
+    status = Column(String(20), default='queued', nullable=False, index=True)
     
     # Timing
     started_at = Column(DateTime, nullable=True)
@@ -86,8 +73,8 @@ class Scan(Base):
     platform_detected = Column(String(100), nullable=True)
     confidence = Column(Numeric(3, 2), nullable=True)
     
-    # Reports (stored as JSON and TEXT)
-    report_json = Column(JSONB, nullable=True)
+    # Reports (use JSON for cross-database compatibility)
+    report_json = Column(JSON, nullable=True)
     report_text = Column(Text, nullable=True)
     
     # Error handling
