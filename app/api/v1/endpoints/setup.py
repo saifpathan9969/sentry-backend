@@ -4,7 +4,7 @@ Setup endpoint for initializing production database
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import asyncio
+from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.models.user import User
@@ -14,9 +14,12 @@ from app.core.config import settings
 
 router = APIRouter()
 
+class InitializeRequest(BaseModel):
+    secret_key: str
+
 @router.post("/initialize-database")
 async def initialize_database(
-    secret_key: str,
+    request: InitializeRequest,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -24,7 +27,7 @@ async def initialize_database(
     Requires secret key for security
     """
     # Verify secret key
-    if secret_key != settings.SECRET_KEY:
+    if request.secret_key != settings.SECRET_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid secret key"
