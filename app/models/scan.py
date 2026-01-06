@@ -2,7 +2,6 @@
 Scan model
 """
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Text, Numeric, Enum, JSON
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ENUM as PG_ENUM
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
