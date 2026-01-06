@@ -22,29 +22,8 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     ALGORITHM: str = "HS256"
     
-    # Database - Auto-detect PostgreSQL for production
+    # Database - SQLite for production (Render compatible)
     DATABASE_URL: str = "sqlite+aiosqlite:///./pentest_brain.db"
-    
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        # Auto-detect PostgreSQL from Railway/Render environment
-        import os
-        postgres_url = os.getenv("DATABASE_URL")
-        if postgres_url and postgres_url.strip() and postgres_url != "":
-            try:
-                if postgres_url.startswith("postgres://"):
-                    # Convert postgres:// to postgresql+asyncpg://
-                    self.DATABASE_URL = postgres_url.replace("postgres://", "postgresql+asyncpg://", 1)
-                elif postgres_url.startswith("postgresql://"):
-                    # Convert postgresql:// to postgresql+asyncpg://
-                    self.DATABASE_URL = postgres_url.replace("postgresql://", "postgresql+asyncpg://", 1)
-                else:
-                    # Only set if it's a valid URL
-                    if "://" in postgres_url:
-                        self.DATABASE_URL = postgres_url
-            except Exception:
-                # If any error occurs, keep the default SQLite URL
-                pass
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
