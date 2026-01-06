@@ -72,10 +72,10 @@ async def create_owner_accounts():
                     hashed_password = pwd_context.hash("Sentry@779969")
                     user = User(
                         email=email,
-                        hashed_password=hashed_password,
+                        password_hash=hashed_password,  # Correct field name
                         full_name="Owner Account",
                         is_active=True,
-                        is_verified=True
+                        email_verified=True
                     )
                     db.add(user)
                     await db.flush()  # Get the user ID
