@@ -5,14 +5,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
+from passlib.context import CryptContext
 
 from app.db.session import get_db
 from app.models.user import User
 from app.models.subscription import Subscription
-from app.services.auth_service import AuthService
 from app.core.config import settings
 
 router = APIRouter()
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class InitializeRequest(BaseModel):
     secret_key: str
@@ -50,21 +51,23 @@ async def initialize_database(
             }
         
         # Create owner accounts
-        auth_service = AuthService()
         created_owners = []
         
         for email in settings.OWNER_EMAILS:
-            # Create owner user
-            user_data = {
-                "email": email,
-                "password": "sentry@779969",  # Default password
-                "first_name": "Owner",
-                "last_name": "Account",
-                "is_active": True,
-                "is_verified": True
-            }
+            # Hash password
+            hashed_password = pwd_context.hash("sentry@779969")
             
-            user = await auth_service.create_user(db, user_data)
+            # Create owner user directly
+            user = User(
+                email=email,
+                hashed_password=hashed_password,
+                first_name="Owner",
+                last_name="Account",
+                is_active=True,
+                is_verified=True
+            )
+            db.add(user)
+            await db.flush()  # Get the user ID
             
             # Create enterprise subscription
             subscription = Subscription(
