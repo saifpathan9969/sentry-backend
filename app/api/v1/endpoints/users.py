@@ -22,6 +22,7 @@ async def get_current_user_info(
     Get current user information
     
     Requires valid JWT access token in Authorization header
+    Fixed: User IDs are now strings, not UUIDs
     """
     # Convert User model to UserResponse with UUID as string
     return UserResponse(
