@@ -166,7 +166,7 @@ class AuthService:
         
         # Get user
         result = await self.db.execute(
-            select(User).where(User.id == uuid.UUID(user_id))
+            select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         
@@ -287,7 +287,7 @@ class AuthService:
         
         # Get user
         result = await self.db.execute(
-            select(User).where(User.id == uuid.UUID(user_id))
+            select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
         
