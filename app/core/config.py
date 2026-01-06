@@ -39,6 +39,7 @@ class Settings(BaseSettings):
         "http://localhost:8000",
         "http://localhost",
         # Vercel production URLs
+        "https://sentry-brown-xi.vercel.app",
         "https://sentry-frontend-pi.vercel.app",
         "https://neural-brain-security.vercel.app",
         "https://neural-brain-security-git-main.vercel.app",
