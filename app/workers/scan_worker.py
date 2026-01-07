@@ -78,7 +78,7 @@ async def _process_scan_async(
     Returns:
         Dict with scan results
     """
-    scan_uuid = UUID(scan_id)
+    scan_uuid = scan_id  # Already a string
     start_time = datetime.utcnow()
     
     try:
@@ -175,7 +175,7 @@ async def _process_scan_async(
 
 async def _update_scan_status(
     db: AsyncSession,
-    scan_id: UUID,
+    scan_id: str,
     status: str,
     started_at: datetime = None,
     completed_at: datetime = None,

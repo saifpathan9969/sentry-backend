@@ -3,7 +3,6 @@ Scan management endpoints
 """
 from fastapi import APIRouter, Depends, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import UUID
 
 from app.api.dependencies import get_current_user, get_db
 from app.models.user import User
@@ -63,7 +62,7 @@ async def list_scans(
 
 @router.get("/{scan_id}", response_model=ScanResponse)
 async def get_scan(
-    scan_id: UUID = Path(..., description="Scan ID"),
+    scan_id: str = Path(..., description="Scan ID"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -79,7 +78,7 @@ async def get_scan(
 
 @router.delete("/{scan_id}", status_code=204)
 async def delete_scan(
-    scan_id: UUID = Path(..., description="Scan ID"),
+    scan_id: str = Path(..., description="Scan ID"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -95,7 +94,7 @@ async def delete_scan(
 
 @router.get("/{scan_id}/report", response_model=ScanReportResponse)
 async def get_scan_report(
-    scan_id: UUID = Path(..., description="Scan ID"),
+    scan_id: str = Path(..., description="Scan ID"),
     format: str = Query("json", pattern="^(json|text)$", description="Report format"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -117,7 +116,7 @@ async def get_scan_report(
 
 @router.post("/{scan_id}/cancel", response_model=ScanResponse)
 async def cancel_scan(
-    scan_id: UUID = Path(..., description="Scan ID"),
+    scan_id: str = Path(..., description="Scan ID"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):

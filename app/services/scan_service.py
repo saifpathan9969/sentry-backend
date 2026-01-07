@@ -115,8 +115,8 @@ class ScanService:
     async def get_scan(
         cls,
         db: AsyncSession,
-        scan_id: UUID,
-        user_id: UUID,
+        scan_id: str,
+        user_id: str,
     ) -> Scan:
         """
         Get a scan by ID
@@ -151,7 +151,7 @@ class ScanService:
     async def list_scans(
         cls,
         db: AsyncSession,
-        user_id: UUID,
+        user_id: str,
         user_tier: str,
         limit: int = 50,
         offset: int = 0,
@@ -205,8 +205,8 @@ class ScanService:
     async def delete_scan(
         cls,
         db: AsyncSession,
-        scan_id: UUID,
-        user_id: UUID,
+        scan_id: str,
+        user_id: str,
     ) -> bool:
         """
         Delete a scan
@@ -233,8 +233,8 @@ class ScanService:
     async def get_scan_report(
         cls,
         db: AsyncSession,
-        scan_id: UUID,
-        user_id: UUID,
+        scan_id: str,
+        user_id: str,
         format: str = "json",
     ) -> str:
         """
@@ -286,8 +286,8 @@ class ScanService:
     async def cancel_scan(
         cls,
         db: AsyncSession,
-        scan_id: UUID,
-        user_id: UUID,
+        scan_id: str,
+        user_id: str,
     ) -> Scan:
         """
         Cancel a running or queued scan

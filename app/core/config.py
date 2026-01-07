@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Sentry Security"
     VERSION: str = "3.0.0"
     API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = "production"
     
     # Security
     SECRET_KEY: str = secrets.token_urlsafe(32)
