@@ -3,7 +3,7 @@ API v1 router aggregation
 """
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import auth, users, scans, subscriptions, webhooks, admin, setup
+from app.api.v1.endpoints import auth, users, scans, subscriptions, webhooks, admin, setup, database
 
 api_router = APIRouter()
 
@@ -15,3 +15,4 @@ api_router.include_router(subscriptions.router, prefix="/subscriptions", tags=["
 api_router.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])
 api_router.include_router(setup.router, prefix="/setup", tags=["setup"])
+api_router.include_router(database.router, prefix="/database", tags=["database"])
