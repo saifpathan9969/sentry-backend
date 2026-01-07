@@ -105,15 +105,18 @@ async def _process_scan_async(
         platform_detected = result.get("platform_detected", "Unknown")
         confidence = result.get("confidence", 0.0)
         
-        # Calculate vulnerability counts
-        critical_count = sum(1 for v in vulnerabilities if v.get("severity") == "critical")
-        high_count = sum(1 for v in vulnerabilities if v.get("severity") == "high")
-        medium_count = sum(1 for v in vulnerabilities if v.get("severity") == "medium")
-        low_count = sum(1 for v in vulnerabilities if v.get("severity") == "low")
+        # Get vulnerability counts from formatted result
+        vuln_counts = result.get("vulnerability_counts", {})
+        critical_count = vuln_counts.get("critical", 0)
+        high_count = vuln_counts.get("high", 0)
+        medium_count = vuln_counts.get("medium", 0)
+        low_count = vuln_counts.get("low", 0)
         
         # Generate reports
+        from app.scanners.pentest_brain_wrapper import generate_text_report
+        
         report_json = json.dumps(result, indent=2)
-        report_text = _generate_text_report(result)
+        report_text = generate_text_report(result)
         
         # Calculate duration
         end_time = datetime.utcnow()
@@ -220,50 +223,29 @@ async def _execute_cli_tool(target_url: str, scan_mode: str, execution_mode: str
     Returns:
         Dict with scan results
     """
-    # Build command
-    cmd = [
-        "python",
-        "ai_pentest_brain_complete.py",
-        target_url,
-        "--scan-mode", scan_mode,
-        "--execution-mode", execution_mode,
-        "--report-format", "json",
-        "--quiet",
-    ]
+    from app.scanners.pentest_brain_wrapper import run_pentest_scan, format_scan_result
     
-    logger.info(f"Executing command: {' '.join(cmd)}")
+    logger.info(f"Running real pentest scan for {target_url}")
     
     try:
-        # Execute command
-        process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd="../",  # Run from parent directory where CLI tool is located
+        # Run the actual scan
+        raw_result = await run_pentest_scan(
+            target_url=target_url,
+            scan_mode=scan_mode,
+            execution_mode=execution_mode,
+            timeout=300  # 5 minutes
         )
         
-        stdout, stderr = await process.communicate()
+        # Format the result
+        formatted_result = format_scan_result(raw_result)
         
-        if process.returncode != 0:
-            error_msg = stderr.decode() if stderr else "Unknown error"
-            logger.error(f"CLI tool failed with return code {process.returncode}: {error_msg}")
-            
-            # Return a mock result for development/testing
-            logger.warning("Returning mock scan results for development")
-            return _generate_mock_scan_result(target_url, scan_mode, execution_mode)
+        logger.info(f"Scan completed successfully. Found {formatted_result['vulnerability_counts']['total']} vulnerabilities")
         
-        # Parse JSON output
-        try:
-            result = json.loads(stdout.decode())
-            return result
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse CLI tool output: {e}")
-            logger.warning("CLI output was not valid JSON, returning mock results")
-            return _generate_mock_scan_result(target_url, scan_mode, execution_mode)
-            
+        return formatted_result
+        
     except Exception as e:
-        logger.error(f"Exception executing CLI tool: {e}")
-        logger.warning("Returning mock scan results due to execution error")
+        logger.error(f"Real scan failed: {e}")
+        logger.warning("Falling back to mock scan results for development")
         return _generate_mock_scan_result(target_url, scan_mode, execution_mode)
 
 
